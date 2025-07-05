@@ -1,85 +1,441 @@
-import { ConnectButton } from '@rainbow-me/rainbowkit';
-import type { NextPage } from 'next';
-import Head from 'next/head';
-import styles from '../styles/Home.module.css';
+import React, { useState, useRef, useEffect } from "react";
+import { Range } from 'react-range';
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useWatchContractEvent, useBalance } from 'wagmi';
+import { parseEther, Hex, formatEther } from 'viem';
+import { ABI } from "../../components/ABI";
+import { readContract } from '@wagmi/core';
+import {config} from "../wagmi"
+import Image from "next/image";
+import Modal from "../../components/Modal"
+import { useRouter } from "next/router";
+import PlayerEvents from "../../components/playerEvents";
+import Head from "next/head";
+const CONTRACT_ADDRESS: Hex = "0x75B25Cb0eBAcD975F711D11398A35e7B1ECc09ca";
 
-const Home: NextPage = () => {
-  return (
-    <div className={styles.container}>
-      <Head>
-        <title>RainbowKit App</title>
+function Roll() {
+    const [winChance, setWinChance] = useState(50);
+    const { address: playerAddress } = useAccount();
+    const { data: balanceData } = useBalance({ address: playerAddress });
+    const [bet, setBet] = useState<string>('5.0');
+    const [payout, setPayout] = useState(0);
+    const [isLoadingOutcome, setIsLoadingOutcome] = useState<boolean>(false);
+    const [outcome, setOutcome] = useState<{ outcome: bigint, won: boolean } | null>(null);
+    const [showResultScreen, setShowResultScreen] = useState<boolean>(false);
+    const [multiplier, setMultiplier] = useState<number>(0);
+    const [rollOver, setRollOver] = useState(0);
+    const min = 4;
+    const max = 96;
+
+    const balanceDataFormatted = balanceData?.value ? parseFloat(formatEther(balanceData.value)) : 0;
+    const diceRollAudioRef = useRef<HTMLAudioElement | null>(null); 
+
+    const { writeContract: flip } = useWriteContract();
+   
+
+    const [withdrawableBalance, setWithdrawableBalance] = useState<bigint>(0n);
+    const { data: withdrawTxHash, writeContract: withdraw, isPending: isWithdrawTxPending, error: withdrawError } = useWriteContract();
+    const { isLoading: isWithdrawTxConfirming, isSuccess: isWithdrawTxConfirmed } = useWaitForTransactionReceipt({
+        hash: withdrawTxHash,
+    });
+
+    const playerAddressRef = useRef(playerAddress);
+    useEffect(() => {
+        playerAddressRef.current = playerAddress;
+    }, [playerAddress]);
+
+   const fetchPlayerBalance = async () => {
+    if (!playerAddress) {
+      setWithdrawableBalance(0n); // Reset if no player connected
+      return;
+    }
+    try {
+      const balance = await readContract(config, {
+        abi: ABI,
+        address: CONTRACT_ADDRESS,
+        functionName: 'getPlayerBalance',
+        args: [playerAddress],
+      });
+      setWithdrawableBalance(balance as bigint);
+    } catch (err) {
+      console.error("Error fetching player balance:", err);
+    }
+  };
+
+    useWatchContractEvent({
+        address: CONTRACT_ADDRESS,
+        abi: ABI,
+        eventName: 'Roll',
+        enabled: isLoadingOutcome,
+        onLogs(logs) {
+            const relevantLogs = logs.filter(log =>
+                (log.args as { player: string, outcome: bigint, won: boolean }).player === playerAddressRef.current
+            );
+
+            if (relevantLogs.length > 0 && isLoadingOutcome) {
+                const lastLog = relevantLogs[relevantLogs.length - 1];
+                const args = lastLog.args as { outcome: bigint, won: boolean };
+                setShowResultScreen(true);
+                setOutcome({
+                    outcome: args.outcome,
+                    won: args.won
+                });
+                console.log(args);
+                setIsLoadingOutcome(false);
+                fetchPlayerBalance();
+            }
+        },
+    });
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!playerAddress) {
+            return;
+        }
+        if (parseFloat(bet) <= 0 || isNaN(parseFloat(bet))) {
+        }
+
+        setOutcome(null);
+        setShowResultScreen(false);
+        setIsLoadingOutcome(false);
+
+        try {
+            await flip({
+                abi: ABI,
+                address: CONTRACT_ADDRESS,
+                functionName: 'flip',
+                args: [BigInt(winChance)],
+                value: parseEther(bet),
+            }); 
+            setIsLoadingOutcome(true);
+        } catch (err) {
+            console.error("Error submitting flip transaction:", err);
+        }
+    };
+
+    const handleWithdrawAndPlayAgain = async () => {
+        if (!playerAddress) {
+            return;
+        }
+        if (withdrawableBalance === 0n) {
+            setOutcome(null);
+            setShowResultScreen(false);
+            setIsLoadingOutcome(false);
+            return;
+        }
+
+        try {
+            await withdraw({
+                abi: ABI,
+                address: CONTRACT_ADDRESS,
+                functionName: 'withdrawWinnings',
+            }); 
+            setIsLoadingOutcome(false);
+        } catch (err) {
+            console.error("Error withdrawing:", err);
+            setOutcome(null);
+            setShowResultScreen(false);
+        }
+    };
+
+    useEffect(() => {
+        if (isWithdrawTxConfirmed) {
+            setOutcome(null);
+            setShowResultScreen(false);
+        } else if (withdrawError) {
+            setOutcome(null);
+            setShowResultScreen(false);
+        }
+    }, [isWithdrawTxConfirmed, withdrawError]);
+
+    const isBetDisabled = isWithdrawTxPending || isWithdrawTxConfirming;
+
+    const audioRef = useRef<HTMLAudioElement | null>(null);
+    const prevWinChanceRef = useRef(winChance);
+
+    useEffect(() => {
+        if (!audioRef.current) {
+            audioRef.current = new Audio('/typewrite.mp3');
+            audioRef.current.load();
+            audioRef.current.addEventListener('error', (e) => {
+                console.error("Error loading audio file:", e);
+            });
+        }
+        return () => {
+            if (audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current.currentTime = 0;
+            }
+        };
+    }, []);
+
+    useEffect(() => {
+        if (audioRef.current && winChance !== prevWinChanceRef.current) {
+            audioRef.current.currentTime = 0;
+            audioRef.current.play().catch(e => {
+                console.warn("Audio playback prevented or failed:", e);
+            });
+        }
+        prevWinChanceRef.current = winChance;
+    }, [winChance]);
+
+    const getTrackBackground = () => {
+        const percentage = ((winChance - min) / (max - min)) * 100;
+        return `linear-gradient(to right,
+            #84cc16 ${percentage}%,
+            #ef4444 ${percentage}%)`;
+    };
+
+      const getOutcomeImagePosition = (outcomeValue: number) => {
+          // Calculate the position of the outcome on the slider
+          // This assumes a linear mapping from min-max to 0-100% of the track width
+          const sliderRange = max - min;
+          const positionPercentage = ((outcomeValue - min) / sliderRange) * 100;
+          return `${positionPercentage}%`;
+      };
+
+    useEffect(() => {
+        const payoutCalculation = parseFloat(bet) * 97 / winChance;
+        setPayout(payoutCalculation);
+    }, [bet, winChance]);
+
+    useEffect(() => {
+        const rollOverCalculation = winChance;
+        setRollOver(rollOverCalculation);
+    }, [winChance]);
+
+    useEffect(() => {
+        const multiplierCalculation = 97 / winChance;
+        setMultiplier(multiplierCalculation);
+    }, [winChance]);
+
+    useEffect(() => {
+    if (!diceRollAudioRef.current) {
+        diceRollAudioRef.current = new Audio('/cashregister.mp3');
+        diceRollAudioRef.current.load(); // Preload the audio
+        diceRollAudioRef.current.volume = 0.7; // Adjust volume as needed
+        diceRollAudioRef.current.addEventListener('error', (e) => {
+            console.error("Error loading dice roll audio file:", e);
+        });
+    }
+}, []);
+
+    useEffect(() => {
+    if (outcome) {
+        if (diceRollAudioRef.current) {
+            diceRollAudioRef.current.currentTime = 0; // Rewind to start for repeated plays
+            diceRollAudioRef.current.play().catch(e => {
+                console.warn("Dice roll audio playback prevented or failed:", e);
+            });
+        }
+    }
+}, [outcome]);
+
+ const router = useRouter(); // Initialize the router
+  const { modal } = router.query; // Destructure the 'modal' query parameter
+
+ const [isHowToPlayModalOpen, setIsHowToPlayModalOpen] = useState(false);
+  const [isBetsModalOpen, setIsBetsModalOpen] = useState(false);
+  // useEffect to react to changes in the 'modal' query parameter
+  useEffect(() => {
+    // If 'modal' query is 'howtoplay', open the how-to-play modal, close others
+    if (modal === 'howtoplay') {
+      setIsHowToPlayModalOpen(true);
+      setIsBetsModalOpen(false);
+    } 
+    else if (modal === 'bets') {
+      setIsBetsModalOpen(true);
+      setIsHowToPlayModalOpen(false);
+    }
+    // If 'modal' query is not present or not recognized, close all modals
+    else {
+      setIsHowToPlayModalOpen(false);
+      setIsBetsModalOpen(false);
+    }
+  }, [modal]);
+  const closeModal = () => {
+    setIsHowToPlayModalOpen(false);
+    setIsBetsModalOpen(false);
+    // Remove the 'modal' query parameter from the URL
+    // router.pathname gets the current path (e.g., "/").
+    // The second argument `undefined` makes it remove the query string.
+    // { shallow: true } prevents a full page reload.
+    router.push(router.pathname, undefined, { shallow: true });
+  };
+
+    return (
+        <>
+       <Head>
+        <title>Pixelcoindice: Decentralized gambling on the Polygon Blockchain</title>
         <meta
-          content="Generated by @rainbow-me/create-rainbowkit"
+          content="Dice betting game on the Polygon blockchain. Decentralized and fair. Connect your wallet, flip and withdraw"
           name="description"
         />
-        <link href="/favicon.ico" rel="icon" />
+        <link href="/favicon.png" rel="icon" />
       </Head>
+            <div className="w-full max-w-2xl mx-auto p-4 sm:p-8 flex flex-col items-center gap-6 sm:gap-10">
+                <div className="flex flex-col gap-6 w-full border border-2 border-white p-4 rounded-xl text-lg sm:text-2xl items-center">
 
-      <main className={styles.main}>
-        <ConnectButton />
+                    {/* --- DESKTOP LAYOUT (sm: and up) --- */}
+                    <div className="hidden sm:flex sm:flex-row sm:justify-between w-full sm:gap-x-8 text-white">
+                        <div className="flex flex-col sm:flex-1 min-w-0">
+                            <p className="text-sm sm:text-base text-left">Bet amount</p>
+                            <input
+                                type="number" step="0.5" min="1" max={balanceDataFormatted}
+                                value={parseFloat(bet).toFixed(1)} disabled={isBetDisabled || !playerAddress}
+                                onChange={(e) => setBet(e.target.value)}
+                                className="text-center bg-gray-300 text-black rounded-sm py-1 w-full"
+                            />
+                        </div>
+                        <div className="flex flex-col sm:flex-1 min-w-0">
+                            <p className="text-sm sm:text-base text-left">Payout</p>
+                            <input
+                                type="text" readOnly value={payout.toFixed(2)}
+                                className="text-center bg-gray-400 text-black rounded-sm py-1 focus:outline-none w-full"
+                            />
+                        </div>
+                    </div>
 
-        <h1 className={styles.title}>
-          Welcome to <a href="https://www.rainbowkit.com">RainbowKit</a> +{' '}
-          <a href="https://wagmi.sh">wagmi</a> +{' '}
-          <a href="https://nextjs.org">Next.js!</a>
-        </h1>
+                    <div className="hidden sm:flex sm:flex-row sm:justify-between w-full sm:gap-x-8 text-white">
+                        <div className="flex flex-col sm:flex-1 min-w-0">
+                            <p className="text-sm sm:text-base text-left">Roll under</p>
+                            <input value={rollOver} readOnly className="text-lg sm:text-2xl text-center font-bold mb-2 sm:mb-4 bg-gray-400 text-black rounded-sm py-1 focus:outline-none w-full" />
+                        </div>
+                        <div className="flex flex-col sm:flex-1 min-w-0">
+                            <p className="text-sm sm:text-base text-left">Win chance</p>
+                            <input value={winChance} step="1" type="number" readOnly className="text-lg sm:text-2xl text-center font-bold mb-2 sm:mb-4 bg-gray-400 text-black rounded-sm py-1 focus:outline-none w-full" />
+                        </div>
+                        <div className="flex flex-col sm:flex-1 min-w-0">
+                            <p className="text-sm sm:text-base text-left">Multiplier</p>
+                            <input value={multiplier.toFixed(2)} step="1" type="number" readOnly className="text-lg sm:text-2xl text-center font-bold mb-2 sm:mb-4 bg-gray-400 text-black rounded-sm py-1 focus:outline-none w-full" />
+                        </div>
+                    </div>
 
-        <p className={styles.description}>
-          Get started by editing{' '}
-          <code className={styles.code}>pages/index.tsx</code>
-        </p>
+                    {/* --- MOBILE LAYOUT (less than sm:) --- */}
+                    <div className="sm:hidden flex flex-col w-full text-white">
+                        <p className="text-sm text-left">Bet amount</p>
+                        <input
+                            type="number" step="0.5" min="1" max={balanceDataFormatted}
+                            value={parseFloat(bet).toFixed(1)} disabled={isBetDisabled || !playerAddress}
+                            onChange={(e) => setBet(e.target.value)}
+                            className="text-center bg-gray-300 text-black rounded-sm py-1 w-full"
+                        />
+                    </div>
 
-        <div className={styles.grid}>
-          <a className={styles.card} href="https://rainbowkit.com">
-            <h2>RainbowKit Documentation &rarr;</h2>
-            <p>Learn how to customize your wallet connection flow.</p>
-          </a>
+                    <div className="sm:hidden grid grid-cols-2 gap-4 w-full text-white">
+                        <div className="flex flex-col w-full">
+                            <p className="text-sm text-left">Payout</p>
+                            <input
+                                type="text" readOnly value={payout.toFixed(2)}
+                                className="text-center bg-gray-400 text-black rounded-sm py-1 focus:outline-none w-full"
+                            />
+                        </div>
+                        <div className="flex flex-col w-full">
+                            <p className="text-sm text-left">Roll under</p>
+                            <input value={rollOver} readOnly className="text-lg text-center font-bold mb-2 bg-gray-400 text-black rounded-sm py-1 focus:outline-none w-full" />
+                        </div>
+                        <div className="flex flex-col w-full">
+                            <p className="text-sm text-left">Win chance</p>
+                            <input value={winChance} step="1" type="number" readOnly className="text-lg text-center font-bold mb-2 bg-gray-400 text-black rounded-sm py-1 focus:outline-none w-full" />
+                        </div>
+                        <div className="flex flex-col w-full">
+                            <p className="text-sm text-left">Multiplier</p>
+                            <input value={multiplier.toFixed(2)} step="1" type="number" readOnly className="text-lg text-center font-bold mb-2 bg-gray-400 text-black rounded-sm py-1 focus:outline-none w-full" />
+                        </div>
+                    </div>
 
-          <a className={styles.card} href="https://wagmi.sh">
-            <h2>wagmi Documentation &rarr;</h2>
-            <p>Learn how to interact with Ethereum.</p>
-          </a>
+                    {isLoadingOutcome ? (
+                        <button className="bg-gray-300 rounded-xl w-2/3 sm:w-1/3 p-2 text-black flex justify-center"><div className="loader m-0 p-0"></div></button>
+                    ) : showResultScreen && outcome ? (
+                        <>
+                            <button
+                                onClick={handleWithdrawAndPlayAgain}
+                                disabled={isWithdrawTxPending || isWithdrawTxConfirming}
+                                className={`${outcome.won ? ("bg-green-300") : ("bg-gray-300")} rounded-xl w-2/3 sm:w-1/3 p-2 text-black flex justify-center`}
+                            >
+                                {isWithdrawTxPending || isWithdrawTxConfirming ? "Claiming" : (withdrawableBalance > 0n ? 'Claim' : 'Play Again')}
+                            </button>
+                        </>
+                    ) : (
+                        <>
+                            <button onClick={handleSubmit} disabled={isBetDisabled} className="bg-gray-300 rounded-xl w-2/3 sm:w-1/3 p-2 text-black">Roll</button>
+                        </>
+                    )}
+                </div>
 
-          <a
-            className={styles.card}
-            href="https://github.com/rainbow-me/rainbowkit/tree/main/examples"
-          >
-            <h2>RainbowKit Examples &rarr;</h2>
-            <p>Discover boilerplate example RainbowKit projects.</p>
-          </a>
-
-          <a className={styles.card} href="https://nextjs.org/docs">
-            <h2>Next.js Documentation &rarr;</h2>
-            <p>Find in-depth information about Next.js features and API.</p>
-          </a>
-
-          <a
-            className={styles.card}
-            href="https://github.com/vercel/next.js/tree/canary/examples"
-          >
-            <h2>Next.js Examples &rarr;</h2>
-            <p>Discover and deploy boilerplate example Next.js projects.</p>
-          </a>
-
-          <a
-            className={styles.card}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-          >
-            <h2>Deploy &rarr;</h2>
-            <p>
-              Instantly deploy your Next.js site to a public URL with Vercel.
-            </p>
-          </a>
+                <div className="bg-gray-400 w-full py-3 px-3 flex flex-row gap-2 items-center rounded-full relative">
+                    <p className="px-3 text-sm sm:text-base">0</p>
+                    <Range
+                        step={1}
+                        min={min}
+                        max={max}
+                        values={[winChance]}
+                        disabled={isBetDisabled}
+                        onChange={(newValues) => {
+                            setWinChance(newValues[0]);
+                        }}
+                        renderTrack={({ props, children }) => (
+                            <div
+                                {...props}
+                                onMouseDown={(e) => {
+                                    if (e.target === props.ref.current) {
+                                        e.preventDefault();
+                                    }
+                                    if (props.onMouseDown && e.target !== props.ref.current) {
+                                        props.onMouseDown(e);
+                                    }
+                                }}
+                                className="custom-slider-track"
+                                style={{
+                                    ...props.style,
+                                    background: getTrackBackground(),
+                                }}
+                            >
+                                {outcome && (
+                          <Image src='/favicon.png' alt='dice' width={40} height={40} className='absolute -top-10 z-69' style={{
+                            left: getOutcomeImagePosition(Number(outcome.outcome)),
+                                  transform: 'translateX(-50%)',
+                          }}/>
+                      )}
+                                {children}
+                            </div>
+                        )}
+                        renderThumb={({ props }) => (
+                            <div
+                                {...props}
+                                className="custom-slider-thumb"
+                                style={{
+                                    ...props.style,
+                                    background: 'linear-gradient(oklch(85.2% 0.199 91.936), oklch(79.5% 0.184 86.047), oklch(68.1% 0.162 75.834))',
+                                }}
+                            />
+                        )}
+                    /><p className="px-3 text-sm sm:text-base">100</p>
+                      
+                </div>
+            </div>
+            <Modal isOpen={isHowToPlayModalOpen} onClose={closeModal}>
+        <div className="mt-2 text-lg/6 text-white/70">
+          <ol className="list-decimal list-inside text-gray-300">
+            <li>Connect your wallet</li>
+            <li>Choose a multiplier with the slider</li>
+            <li>Choose a bet amount and roll</li>
+            <li>Wait for the outcome</li>
+            <li>Withdraw and play again</li>
+          </ol>
+          <p className="mt-4 text-sm text-gray-300">
+            If your bet gets stuck for too long, dont worry. Everything is handled on the blockchain. Refresh and check your bets
+          </p>
         </div>
-      </main>
+      </Modal>
+      <Modal isOpen={isBetsModalOpen} onClose={closeModal}>
+        <PlayerEvents/>
+        <div className='flex flex-row justify-between mt-2 text-white items-center'>
+        <p>Your withdrawable balance: {formatEther(withdrawableBalance)} POL</p>
+        <button className='text-white bg-green-700 p-1 rounded'>withdraw</button>
+        </div>
+      </Modal>
+        </>
+    );
+}
 
-      <footer className={styles.footer}>
-        <a href="https://rainbow.me" rel="noopener noreferrer" target="_blank">
-          Made with ❤️ by your frens at 🌈
-        </a>
-      </footer>
-    </div>
-  );
-};
-
-export default Home;
+export default Roll;
