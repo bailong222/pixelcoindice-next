@@ -55,10 +55,10 @@ const ROLL_EVENT_ABI = [
 const ROLL_EVENT_TOPIC0 = "0x6a36edc3de667e6793a2ba35d399e66bc104715b2cf33cf36188c64c5c90fc83";
 
 // Replace with your actual contract address on Polygon
-const CONTRACT_ADDRESS = "0x75B25Cb0eBAcD975F711D11398A35e7B1ECc09ca"; // <<< IMPORTANT: Confirm this is correct for Polygon!
+const CONTRACT_ADDRESS = "0x4b2DA981e6f678a5F99d5eDD219be12089Bebd00"; // <<< IMPORTANT: Confirm this is correct for Polygon!
 
 
-const ETHERSCAN_API_KEY = 'YVJDY125CRSD16RNZ871NV7C2QA2GF6GYC';
+const ETHERSCAN_API_KEY = '8JZEIVVIWPKAZYX9DFGBDXEKIHFP9VR5TW';
 
 const POLLING_INTERVAL = 5000; // Poll every 5 seconds (adjust based on PolygonScan rate limits)
 
@@ -82,7 +82,7 @@ const RollEvents: React.FC = () => {
 
       // Initial validation for essential configurations
       if (!ETHERSCAN_API_KEY) {
-        setError("Etherscan API Key is not set. Please check your .env file and VITE_ prefix.");
+        setError("Loading");
         setLoading(false);
         return;
       }
@@ -95,7 +95,7 @@ const RollEvents: React.FC = () => {
       const toBlock = 'latest'; // Always query up to the latest block
 
       // Construct the PolygonScan API URL
-      const url = `https://api.polygonscan.com/api?module=logs&action=getLogs&address=${CONTRACT_ADDRESS}&fromBlock=${currentFromBlock}&toBlock=${toBlock}&topic0=${ROLL_EVENT_TOPIC0}&apikey=${ETHERSCAN_API_KEY}`;
+      const url = `https://api.sonicscan.org/api?module=logs&action=getLogs&address=${CONTRACT_ADDRESS}&fromBlock=${currentFromBlock}&toBlock=${toBlock}&topic0=${ROLL_EVENT_TOPIC0}&apikey=${ETHERSCAN_API_KEY}`;
 
       try {
         const response = await axios.get(url);
@@ -158,7 +158,7 @@ const RollEvents: React.FC = () => {
           // Loading state handled in finally block.
         } else {
           // Handle API-specific errors (e.g., rate limits, invalid params)
-          setError(`Error from PolygonScan API: ${data.message} - ${data.result}`);
+          setError(`Error`);
           console.error("PolygonScan API Error:", data.message, "Result:", data.result);
         }
       } catch (err) {
@@ -168,7 +168,7 @@ const RollEvents: React.FC = () => {
         } else {
           setError("An unexpected error occurred.");
         }
-        console.error("Failed to fetch Roll events:", err);
+        console.error("Failed to fetch past bets:", err);
       } finally {
         // Ensure loading is set to false after any fetch attempt (success or failure)
         setLoading(false);
@@ -195,7 +195,7 @@ const RollEvents: React.FC = () => {
   // --- Conditional Rendering for UI Feedback ---
   // Show loading indicator only if no events have been loaded yet
   if (loading && events.length === 0) {
-    return <div className="p-4 text-center text-blue-600">Loading Roll events...</div>;
+    return <div className="p-4 text-center text-blue-600">Loading past bets...</div>;
   }
 
   // Display error message if an error occurred
@@ -205,14 +205,14 @@ const RollEvents: React.FC = () => {
 
   // Display message if no events are found after loading
   if (events.length === 0) {
-    return <div className="p-4 text-center text-gray-500">No Roll events found for this contract.</div>;
+    return <div className="p-4 text-center text-gray-500">No past bets found for this contract.</div>;
   }
 
   // --- Main Event Display ---
   return (
-    <div className="p-2 rounded-lg shadow-md max-w-2xl mx-auto">
+    <div className="p-2 rounded-lg shadow-md max-w-2xl mx-auto ">
 
-      <div className="space-y-4 border border-yellow-700 p-2 rounded">
+      <div className="space-y-4 border border-yellow-700 p-2 rounded flex flex-col items-center">
         {events.slice(0, 6).map((event) => (
           <div key={event.transactionHash} className=" p-2 rounded-md text-white">
             <p>

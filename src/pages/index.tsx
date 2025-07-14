@@ -10,11 +10,13 @@ import Modal from "../../components/Modal"
 import { useRouter } from "next/router";
 import PlayerEvents from "../../components/playerEvents";
 import Head from "next/head";
-const CONTRACT_ADDRESS: Hex = "0x75B25Cb0eBAcD975F711D11398A35e7B1ECc09ca";
+import RollEvents from "../../components/events"
+
+const CONTRACT_ADDRESS: Hex = "0x4b2DA981e6f678a5F99d5eDD219be12089Bebd00";
 
 function Roll() {
     const [winChance, setWinChance] = useState(50);
-    const { address: playerAddress } = useAccount();
+    const { address: playerAddress, isConnected } = useAccount();
     const { data: balanceData } = useBalance({ address: playerAddress });
     const [bet, setBet] = useState<string>('5.0');
     const [payout, setPayout] = useState(0);
@@ -60,6 +62,14 @@ function Roll() {
       console.error("Error fetching player balance:", err);
     }
   };
+
+  useEffect(() => {
+    fetchPlayerBalance()
+  },[isConnected])
+
+  useEffect(() => {
+    fetchPlayerBalance()
+  },[showResultScreen])
 
     useWatchContractEvent({
         address: CONTRACT_ADDRESS,
@@ -265,9 +275,9 @@ function Roll() {
     return (
         <>
        <Head>
-        <title>Pixelcoindice: Decentralized gambling on the Polygon Blockchain</title>
+        <title>Pixelcoindice: Decentralized gambling on the Sonic Blockchain</title>
         <meta
-          content="Dice betting game on the Polygon blockchain. Decentralized and fair. Connect your wallet, flip and withdraw"
+          content="Dice betting game on the Sonic blockchain. Decentralized and fair. Connect your wallet, roll and withdraw"
           name="description"
         />
         <link href="/favicon.png" rel="icon" />
@@ -430,10 +440,11 @@ function Roll() {
       <Modal isOpen={isBetsModalOpen} onClose={closeModal}>
         <PlayerEvents/>
         <div className='flex flex-row justify-between mt-2 text-white items-center'>
-        <p>Your withdrawable balance: {formatEther(withdrawableBalance)} POL</p>
-        <button className='text-white bg-green-700 p-1 rounded'>withdraw</button>
+        <p>Your withdrawable balance: {formatEther(withdrawableBalance)} S</p>
+        <button className='text-white bg-green-700 p-1 px-2 rounded'>Withdraw</button>
         </div>
       </Modal>
+      {!isConnected && <RollEvents/>}
         </>
     );
 }

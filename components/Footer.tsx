@@ -7,7 +7,6 @@ export default function Footer() {
 
   return (
     <footer className="
-      bg-gradient-to-r from-purple-900 to-indigo-950
       text-gray-200
       py-1 // Vertical padding
       shadow-inner-xl
@@ -28,7 +27,7 @@ export default function Footer() {
               text-lg font-extrabold
               text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-500
             ">
-              PIXELCOINFLIP
+              PIXELCOINDICE
             </h3>
           <p className="text-xxs mt-0.5 text-gray-400"> {/* Assuming text-xxs is defined, otherwise use text-xs */}
             Decentralized Gaming
@@ -52,7 +51,7 @@ export default function Footer() {
         text-center text-gray-500 text-xxs // Assuming text-xxs is defined, otherwise use text-xs
         // Removed mt-2 and pt-1 for no margin/padding
       ">
-        &copy; {currentYear} PIXELCOINFLIP. All rights reserved.
+        &copy; {currentYear} PIXELCOINDICE. All rights reserved.
       </div>
     </footer>
   );

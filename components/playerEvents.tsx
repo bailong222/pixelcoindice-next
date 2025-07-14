@@ -52,10 +52,10 @@ const ROLL_EVENT_ABI = [
 const ROLL_EVENT_TOPIC0 = "0x6a36edc3de667e6793a2ba35d399e66bc104715b2cf33cf36188c64c5c90fc83";
 
 // Replace with your actual contract address on Polygon
-const CONTRACT_ADDRESS = "0x75B25Cb0eBAcD975F711D11398A35e7B1ECc09ca"; 
+const CONTRACT_ADDRESS = "0x4b2DA981e6f678a5F99d5eDD219be12089Bebd00"; 
 
 // Accessing API key using import.meta.env, as specified for Vite
-const ETHERSCAN_API_KEY = 'KMVNWD4VA4QV6USFD52CQJ32YKV37KU7UP';
+const ETHERSCAN_API_KEY = '8JZEIVVIWPKAZYX9DFGBDXEKIHFP9VR5TW';
 
 const POLLING_INTERVAL = 5000; // Poll every 5 seconds
 
@@ -86,7 +86,7 @@ const PlayerEvents: React.FC = () => {
       const currentFromBlock = lastBlock ? lastBlock + 1 : 0;
       const toBlock = 'latest'; 
 
-      const url = `https://api.polygonscan.com/api?module=logs&action=getLogs&address=${CONTRACT_ADDRESS}&fromBlock=${currentFromBlock}&toBlock=${toBlock}&topic0=${ROLL_EVENT_TOPIC0}&apikey=${ETHERSCAN_API_KEY}`;
+      const url = `https://api.sonicscan.org/api?module=logs&action=getLogs&address=${CONTRACT_ADDRESS}&fromBlock=${currentFromBlock}&toBlock=${toBlock}&topic0=${ROLL_EVENT_TOPIC0}&apikey=${ETHERSCAN_API_KEY}`;
 
       try {
         const response = await axios.get(url);
@@ -169,7 +169,7 @@ const PlayerEvents: React.FC = () => {
   };
   // --- Conditional Rendering for UI Feedback ---
   if (loading && events.length === 0) {
-    return <div className="p-4 text-center text-blue-600">Loading Roll events...</div>;
+    return <div className="p-4 text-center text-blue-600">Loading your bets...</div>;
   }
 
   if (error) {
@@ -177,7 +177,7 @@ const PlayerEvents: React.FC = () => {
   }
 
   if (!isConnected || !currentAccount) {
-    return <div className="p-4 text-center text-yellow-600">Please connect your wallet to see your Roll events.</div>;
+    return <div className="p-4 text-center text-yellow-600">Please connect your wallet to see your bets.</div>;
   }
 
   // Filter events based on the current connected account
@@ -189,7 +189,7 @@ const PlayerEvents: React.FC = () => {
   if (filteredEvents.length === 0) {
     return (
       <div className="p-4 text-center text-gray-500">
-        No Roll events found for your connected address ({currentAccount.slice(0, 6)}...{currentAccount.slice(-4)}).
+        No bets found for your connected address ({currentAccount.slice(0, 6)}...{currentAccount.slice(-4)}).
       </div>
     );
   }
@@ -197,9 +197,9 @@ const PlayerEvents: React.FC = () => {
   // --- Main Event Display ---
   return (
     <div className="p-2 rounded-lg shadow-md max-w-2xl mx-auto">
-      <h2 className="text-xl font-bold mb-4 text-center text-white">Your Roll Events</h2>
+      <h2 className="text-xl font-bold mb-4 text-center text-white">Your past bets</h2>
       <p className="text-center text-sm text-gray-400 mb-4">
-        Showing events for connected address: <span className="text-white">{currentAccount.slice(0, 6)}...{currentAccount.slice(-4)}</span>
+        Showing past bets for connected address: <span className="text-white">{currentAccount.slice(0, 6)}...{currentAccount.slice(-4)}</span>
       </p>
 
       {/* Scrollable div with max-height and overflow-y-auto */}
