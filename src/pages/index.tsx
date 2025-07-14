@@ -31,7 +31,7 @@ function Roll() {
     const balanceDataFormatted = balanceData?.value ? parseFloat(formatEther(balanceData.value)) : 0;
     const diceRollAudioRef = useRef<HTMLAudioElement | null>(null); 
 
-    const { writeContract: flip } = useWriteContract();
+    const { writeContract: flip, error: flipError} = useWriteContract();
    
 
     const [withdrawableBalance, setWithdrawableBalance] = useState<bigint>(0n);
@@ -95,6 +95,16 @@ function Roll() {
             }
         },
     });
+
+    useEffect(() => {
+    if (flipError) {
+      console.error("Flip transaction write error:", flipError);
+      setIsLoadingOutcome(false);
+      setOutcome(null);
+      setShowResultScreen(false);
+   
+    }
+  }, [flipError]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
