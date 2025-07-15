@@ -166,7 +166,7 @@ function Roll() {
         }
     }, [isWithdrawTxConfirmed, withdrawError]);
 
-    const isBetDisabled = isWithdrawTxPending || isWithdrawTxConfirming;
+    const isBetDisabled = isWithdrawTxPending || isWithdrawTxConfirming || isLoadingOutcome;
 
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const prevWinChanceRef = useRef(winChance);
@@ -294,14 +294,31 @@ function Roll() {
             <div className="w-full max-w-2xl mx-auto p-4 sm:p-8 flex flex-col items-center gap-6 sm:gap-10">
                 <div className="flex flex-col gap-6 w-full border border-2 border-white p-4 rounded-xl text-lg sm:text-2xl items-center">
 
-                    {/* --- DESKTOP LAYOUT (sm: and up) --- */}
+                
                     <div className="hidden sm:flex sm:flex-row sm:justify-between w-full sm:gap-x-8 text-white">
                         <div className="flex flex-col sm:flex-1 min-w-0">
                             <p className="text-sm sm:text-base text-left">Bet amount</p>
                             <input
                                 type="number" step="0.5" min="1" max={balanceDataFormatted}
-                                value={parseFloat(bet).toFixed(1)} disabled={isBetDisabled || !playerAddress}
-                                onChange={(e) => setBet(e.target.value)}
+                                value={bet} disabled={isBetDisabled || !playerAddress}
+                                onChange={(e) => {
+        const value = e.target.value;
+        const minValue = 1;
+
+       
+        if (value === '') {
+            setBet('');
+            return;
+        }
+
+        const parsedValue = parseFloat(value);
+
+        if (!isNaN(parsedValue) && parsedValue >= minValue) {
+            setBet(value);
+        } else {
+            alert("Minimum bet amount is 1 sonic")
+        }
+    }}
                                 className="text-center bg-gray-300 text-black rounded-sm py-1 w-full"
                             />
                         </div>
@@ -334,8 +351,25 @@ function Roll() {
                         <p className="text-sm text-left">Bet amount</p>
                         <input
                             type="number" step="0.5" min="1" max={balanceDataFormatted}
-                            value={parseFloat(bet).toFixed(1)} disabled={isBetDisabled || !playerAddress}
-                            onChange={(e) => setBet(e.target.value)}
+                            value={bet} disabled={isBetDisabled || !playerAddress}
+                            onChange={(e) => {
+        const value = e.target.value;
+        const minValue = 1;
+
+       
+        if (value === '') {
+            setBet('');
+            return;
+        }
+
+        const parsedValue = parseFloat(value);
+
+        if (!isNaN(parsedValue) && parsedValue >= minValue) {
+            setBet(value);
+        } else {
+            alert("Minimum bet amount is 1 sonic")
+        }
+    }}
                             className="text-center bg-gray-300 text-black rounded-sm py-1 w-full"
                         />
                     </div>
