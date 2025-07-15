@@ -89,7 +89,6 @@ function Roll() {
                     outcome: args.outcome,
                     won: args.won
                 });
-                console.log(args);
                 setIsLoadingOutcome(false);
                 fetchPlayerBalance();
             }
