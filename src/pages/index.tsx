@@ -12,7 +12,7 @@ import PlayerEvents from "../../components/playerEvents";
 import Head from "next/head";
 import RollEvents from "../../components/events"
 
-const CONTRACT_ADDRESS: Hex = "0x4b2DA981e6f678a5F99d5eDD219be12089Bebd00";
+const CONTRACT_ADDRESS: Hex = "0xD288c47feFE57f84607aA43F705F388D2aE900eC";
 
 function Roll() {
     const [winChance, setWinChance] = useState(50);
