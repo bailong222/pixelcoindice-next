@@ -280,11 +280,11 @@ function Roll() {
     // { shallow: true } prevents a full page reload.
     router.push(router.pathname, undefined, { shallow: true });
   };
-
+  //cum
     return (
         <>
        <Head>
-        <title>Pixelcoindice: Decentralized gambling on the Sonic Blockchain</title>
+        <title>Pixelcoindice | Decentralized gambling on the Sonic Blockchain</title>
         <meta
           content="Dice betting game on the Sonic blockchain. Decentralized and fair. Connect your wallet, roll and withdraw"
           name="description"
@@ -304,7 +304,7 @@ function Roll() {
                                 onChange={(e) => {
         const value = e.target.value;
         const minValue = 1;
-
+                                
        
         if (value === '') {
             setBet('');
