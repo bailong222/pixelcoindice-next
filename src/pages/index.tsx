@@ -284,7 +284,7 @@ function Roll() {
     return (
         <>
        <Head>
-        <title>Broflip | Decentralized gambling on the Sonic Blockchain</title>
+        <title>Dice by Broflip | Decentralized gambling on Sonic</title>
         <meta
           content="Dice betting game on the Sonic blockchain. Decentralized and fair. Connect your wallet, roll and withdraw"
           name="description"
